@@ -8,7 +8,7 @@ public class CollisionDetector : MonoBehaviour {
 
     // Use this for initialization
     void Start () {
-        avatar = gameObject.AddComponent(typeof(MoveBehaviour)) as MoveBehaviour;
+       // avatar = gameObject.AddComponent(typeof(MoveBehaviour)) as MoveBehaviour;
     }
 	
 	// Update is called once per frame
@@ -18,7 +18,7 @@ public class CollisionDetector : MonoBehaviour {
 
     void OnTriggerStay(Collider other)
     {
-        //Debug.Log("Coliding!!!!!!!!!!!!!!!!!!!!!!" + this.tag);
-        avatar.printColision("Coliding!!!!!!!!!!!!!!!!!!!!!!" + this.tag);
+        Debug.Log("Coliding!!!!!!!!!!!!!!!!!!!!!!" + this.tag);
+        //avatar.printColision("Coliding!!!!!!!!!!!!!!!!!!!!!!" + this.tag);
     }
 }
