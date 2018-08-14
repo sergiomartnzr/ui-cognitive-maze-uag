@@ -4,21 +4,20 @@ using UnityEngine;
 
 public class CollisionDetector : MonoBehaviour {
 
-    public MoveBehaviour avatar;
+    public  MoveBehaviour moveBehaviour;
 
     // Use this for initialization
     void Start () {
-       // avatar = gameObject.AddComponent(typeof(MoveBehaviour)) as MoveBehaviour;
+       
     }
-	
-	// Update is called once per frame
-	void Update () {
+
+    // Update is called once per frame
+    void Update () {
  
     }
 
     void OnTriggerStay(Collider other)
     {
-        Debug.Log("Coliding!!!!!!!!!!!!!!!!!!!!!!" + this.tag);
-        //avatar.printColision("Coliding!!!!!!!!!!!!!!!!!!!!!!" + this.tag);
+        moveBehaviour.printColision("Coliding!!!!!!!!!!!!!!!!!!!!!!" + this.tag);
     }
 }
