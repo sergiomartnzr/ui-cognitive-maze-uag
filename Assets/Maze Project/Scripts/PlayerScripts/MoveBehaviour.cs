@@ -69,16 +69,19 @@ public class MoveBehaviour : GenericBehaviour
 	// Update is used to set features regardless the active behaviour.
 	void Update ()
 	{
-        String text = "";
+        String data = "";
         foreach (String direction in directions)
         {
-            text += direction;
+            data += direction + ",";
         }
-        Debug.Log(text);
+        if (data.Length > 0)
+        {
+            data = data.Remove(data.Length - 1);
+        }
+        Debug.Log(data);
         if (!directions.ToArray().SequenceEqual(tempDirections.ToArray()))
         {
-            Debug.Log("Changed %%%%%%%%%%%%%%%%%%%%%%%%%%%");
-            writeSocket(text);
+            writeSocket(data);
         }
         tempDirections.Clear();
         tempDirections = new List<String>(directions);
