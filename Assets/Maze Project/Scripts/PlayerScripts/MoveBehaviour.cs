@@ -1,15 +1,20 @@
 ﻿using UnityEngine;
 
 using System.Collections;
+using System.Collections.Generic;
 using System;
 using System.IO;
 using System.Net.Sockets;
+using System.Linq;
 
 
 // MoveBehaviour inherits from GenericBehaviour. This class corresponds to basic walk and run behaviour, it is the default behaviour.
 public class MoveBehaviour : GenericBehaviour
 {
-	public float walkSpeed = 0.15f;                 // Default walk speed.
+    public List<String> directions = new List<String>();
+    public List<String> tempDirections = new List<String>();
+
+    public float walkSpeed = 0.15f;                 // Default walk speed.
 	public float runSpeed = 1.0f;                   // Default run speed.
 	public float sprintSpeed = 2.0f;                // Default sprint speed.
 	public float speedDampTime = 0.1f;              // Default damp time to change the animations based on current speed.
@@ -36,11 +41,11 @@ public class MoveBehaviour : GenericBehaviour
     StreamWriter socket_writer;
     StreamReader socket_reader;
 
-	// Start is always called after any Awake functions.
-	void Start() 
+    // Start is always called after any Awake functions.
+    void Start() 
 	{
-		// Set up the references.
-		jumpBool = Animator.StringToHash("Jump");
+        // Set up the references.
+        jumpBool = Animator.StringToHash("Jump");
 		groundedBool = Animator.StringToHash("Grounded");
 		behaviourManager.GetAnim.SetBool (groundedBool, true);
 
@@ -64,7 +69,21 @@ public class MoveBehaviour : GenericBehaviour
 	// Update is used to set features regardless the active behaviour.
 	void Update ()
 	{
-		string received_data = readSocket();
+        String text = "";
+        foreach (String direction in directions)
+        {
+            text += direction;
+        }
+        Debug.Log(text);
+        if (!directions.ToArray().SequenceEqual(tempDirections.ToArray()))
+        {
+            Debug.Log("Changed %%%%%%%%%%%%%%%%%%%%%%%%%%%");
+            writeSocket(text);
+        }
+        tempDirections.Clear();
+        tempDirections = new List<String>(directions);
+
+        string received_data = readSocket();
 
         // Get jump input.
         /*if (!jump && Input.GetButtonDown(jumpButton) && behaviourManager.IsCurrentBehaviour(this.behaviourCode) && !behaviourManager.IsOverriding())
@@ -169,11 +188,6 @@ public class MoveBehaviour : GenericBehaviour
 
     // Collision detection.
 
-    /*public Collider frontCollider;
-    public Collider backCollider;
-    public Collider rightCollider;
-    public Collider leftCollider;*/
-
     private void OnCollisionStay(Collision collision)
 	{
 		isColliding = true;
@@ -183,10 +197,30 @@ public class MoveBehaviour : GenericBehaviour
 		isColliding = false;
 	}
 
-    public void printColision(String direction)
+    public void OnTriggerEnter(Collider collider)
+    {
+        //colliders.Add(collider);
+    }
+
+    /*public void printColision(String direction)
     {
         Debug.Log(direction);
         writeSocket(direction);
+    }*/
+
+    public void addCollision(String direction)
+    {
+        if (!directions.Contains(direction))
+        {
+            directions.Add(direction);
+        }
+    }
+
+    public void removeCollision(String direction)
+    {
+        if (directions.Contains(direction)) {
+            directions.Remove(direction);
+        }
     }
 
     //Socket functions ########################################################################################################
