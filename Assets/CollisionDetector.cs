@@ -18,8 +18,9 @@ public class CollisionDetector : MonoBehaviour {
 
     void OnTriggerStay(Collider other)
     {
-        //moveBehaviour.printColision("Coliding!!!!!!!!!!!!!!!!!!!!!!" + this.tag);
-    }
+		//moveBehaviour.printColision("Coliding!!!!!!!!!!!!!!!!!!!!!!" + this.tag);
+		moveBehaviour.addCollision(this.tag);
+	}
 
     private void OnTriggerEnter(Collider collider)
     {

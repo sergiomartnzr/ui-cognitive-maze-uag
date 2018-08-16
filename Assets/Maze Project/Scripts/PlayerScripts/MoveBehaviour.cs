@@ -28,6 +28,10 @@ public class MoveBehaviour : GenericBehaviour
 	private bool jump;                              // Boolean to determine whether or not the player started a jump.
 	private bool isColliding;                       // Boolean to determine if the player has collided with an obstacle.
 
+	enum AdvanceSMStates {IDLE, GETOUTOFCROSSROADS, PROCESSINSTRUCTION, MOVEUNTILNEWSCENARIO, ASKFORINSTRUCTIONS, WAITFORINSTRUCTIONS};
+	private AdvanceSMStates AdvanceSM = AdvanceSMStates.WAITFORINSTRUCTIONS;
+	private int processinstruction_ctr = 0;
+
 
 	//Socket
 	public String host = "localhost";
@@ -69,23 +73,8 @@ public class MoveBehaviour : GenericBehaviour
 	// Update is used to set features regardless the active behaviour.
 	void Update ()
 	{
-        String data = "";
-        foreach (String direction in directions)
-        {
-            data += direction + ",";
-        }
-        if (data.Length > 0)
-        {
-            data = data.Remove(data.Length - 1);
-        }
-        Debug.Log(data);
-        if (!directions.ToArray().SequenceEqual(tempDirections.ToArray()))
-        {
-            writeSocket(data);
-        }
-        tempDirections.Clear();
-        tempDirections = new List<String>(directions);
 
+		// Process input data if available
         string received_data = readSocket();
 
         // Get jump input.
@@ -97,29 +86,164 @@ public class MoveBehaviour : GenericBehaviour
         if (received_data != "")
         {
         	Debug.Log(received_data);
-        	// Do something with the received data,
-        	// print it in the log for now
-            if(received_data == ("up")){
-            	behaviourManager.v = behaviourManager.GetV + 90f;
-            	MovementManagement(behaviourManager.h, behaviourManager.v);
-            }
-            if(received_data == ("down")){            	
-            	behaviourManager.v = behaviourManager.v - 0.90f;
-            	MovementManagement(behaviourManager.h, behaviourManager.v);
-            	writeSocket("Hey from Unity!!!");
-            }
-            if(received_data == ("left")){
-            	behaviourManager.h = behaviourManager.h - 0.90f;
-            	MovementManagement(behaviourManager.h, behaviourManager.v);
-            }
-            if(received_data == ("right")){
-            	behaviourManager.h = behaviourManager.h + 0.90f;
-            	MovementManagement(behaviourManager.h, behaviourManager.v);
-            	
-            }
-            
-            
+			// Do something with the received data,
+			// print it in the log for now
+			if (AdvanceSM == AdvanceSMStates.WAITFORINSTRUCTIONS)
+				UpdateMasterInstruction(received_data);
         }
+
+		// Run Main state machine
+		AdvanceStep();
+
+		
+	}
+
+	public void UpdateMasterInstruction(string received_instruction)
+	{
+		/*if (received_instruction == ("up"))
+		{
+			behaviourManager.v = behaviourManager.GetV + 90f;
+			MovementManagement(behaviourManager.h, behaviourManager.v);
+		}
+		if (received_instruction == ("down"))
+		{
+			behaviourManager.v = behaviourManager.v - 0.90f;
+			MovementManagement(behaviourManager.h, behaviourManager.v);
+			writeSocket("Hey from Unity!!!");
+		}
+		if (received_instruction == ("left"))
+		{
+			behaviourManager.h = behaviourManager.h - 0.90f;
+			MovementManagement(behaviourManager.h, behaviourManager.v);
+		}
+		if (received_instruction == ("right"))
+		{
+			behaviourManager.h = behaviourManager.h + 0.90f;
+			MovementManagement(behaviourManager.h, behaviourManager.v);
+
+		}*/
+
+		if (received_instruction == ("up"))
+		{
+			// Continue straight ahead
+			// No changes needed in direction
+		}
+		if (received_instruction == ("down"))
+		{
+			behaviourManager.h = behaviourManager.h +1.00f;
+			MovementManagement(behaviourManager.h, behaviourManager.v);
+		}
+		if (received_instruction == ("left"))
+		{
+			behaviourManager.h = behaviourManager.h - 0.50f;
+			MovementManagement(behaviourManager.h, behaviourManager.v);
+		}
+		if (received_instruction == ("right"))
+		{
+			behaviourManager.h = behaviourManager.h + 0.50f;
+			MovementManagement(behaviourManager.h, behaviourManager.v);
+
+		}
+
+		Debug.Log(received_instruction.ToString());
+
+		AdvanceSM = AdvanceSMStates.PROCESSINSTRUCTION;
+	}
+
+	public void AdvanceStep()
+	{
+		//Debug.Log(AdvanceSM.ToString());
+		switch (AdvanceSM)
+		{
+			case AdvanceSMStates.IDLE:
+				break;
+			case AdvanceSMStates.ASKFORINSTRUCTIONS:
+				AskForInstructions();
+				break;
+			case AdvanceSMStates.WAITFORINSTRUCTIONS:
+				break;
+			case AdvanceSMStates.PROCESSINSTRUCTION:
+				processinstruction_ctr++;
+				if(processinstruction_ctr >= 100)
+				{
+					processinstruction_ctr = 0;
+					AdvanceSM = AdvanceSMStates.GETOUTOFCROSSROADS;
+				}
+				break;
+			case AdvanceSMStates.GETOUTOFCROSSROADS:
+				// We just received the instructions, get into move out of the asked crossroad
+				if (directions.Contains("right") && directions.Contains("left"))
+				{
+					AdvanceSM = AdvanceSMStates.MOVEUNTILNEWSCENARIO;
+				}
+				else
+				{
+					// Move until pass the current crossroad 
+
+					// Main movement logic
+					if (directions.Contains("front_left"))
+					{
+						behaviourManager.h = behaviourManager.h + 0.010f;
+						MovementManagement(behaviourManager.h, behaviourManager.v);
+					}
+					else if (directions.Contains("front_right"))
+					{
+						behaviourManager.h = behaviourManager.h - 0.010f;
+						MovementManagement(behaviourManager.h, behaviourManager.v);
+					}
+					//else
+					{
+						// Move to front
+						 behaviourManager.v = behaviourManager.GetV + .3f;
+						 MovementManagement(behaviourManager.h, behaviourManager.v);
+					}
+				}
+				break;
+			case AdvanceSMStates.MOVEUNTILNEWSCENARIO:
+				if (directions.Contains("front") || !directions.Contains("left") || !directions.Contains("right"))
+					AdvanceSM = AdvanceSMStates.ASKFORINSTRUCTIONS;
+				else
+				{
+					// Main movement logic
+					if (directions.Contains("front_left"))
+					{
+						behaviourManager.h = behaviourManager.h + 0.010f;
+						MovementManagement(behaviourManager.h, behaviourManager.v);
+					}
+					else if (directions.Contains("front_right"))
+					{
+						behaviourManager.h = behaviourManager.h - 0.010f;
+						MovementManagement(behaviourManager.h, behaviourManager.v);
+					}
+					//else
+					{
+						// Move to front
+						behaviourManager.v = behaviourManager.GetV + .3f;
+						MovementManagement(behaviourManager.h, behaviourManager.v);
+					}
+				}
+				break;
+			default:
+				break;
+		}
+	}
+
+	public void AskForInstructions()
+	{
+		// Ask for instructions
+		String data = "";
+		foreach (String direction in directions)
+		{
+			if(!direction.Equals("front_right") && !direction.Equals("front_left")) // Filter out are internal colliders
+				data += direction + ",";
+		}
+		if (data.Length > 0)
+		{
+			data = data.Remove(data.Length - 1);
+		}
+		writeSocket(data);
+
+		AdvanceSM = AdvanceSMStates.WAITFORINSTRUCTIONS;
 	}
 
 	// LocalFixedUpdate overrides the virtual function of the base class.
@@ -127,8 +251,8 @@ public class MoveBehaviour : GenericBehaviour
 	{
 		// Call the basic movement manager.
 		MovementManagement(behaviourManager.GetH, behaviourManager.GetV);
-		Debug.Log("H: "+behaviourManager.GetH);
-		Debug.Log("V: "+behaviourManager.GetV);
+		//Debug.Log("H: "+behaviourManager.GetH);
+		//Debug.Log("V: "+behaviourManager.GetV);
 	}
 
 	// Deal with the basic player movement
@@ -216,14 +340,16 @@ public class MoveBehaviour : GenericBehaviour
         if (!directions.Contains(direction))
         {
             directions.Add(direction);
-        }
+			//Debug.Log(direction.ToString() +" added");
+		}
     }
 
     public void removeCollision(String direction)
     {
         if (directions.Contains(direction)) {
             directions.Remove(direction);
-        }
+			//Debug.Log(direction.ToString() + " removed");
+		}
     }
 
     //Socket functions ########################################################################################################
