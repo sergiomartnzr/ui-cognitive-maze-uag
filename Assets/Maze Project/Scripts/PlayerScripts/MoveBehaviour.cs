@@ -1,15 +1,20 @@
 ﻿using UnityEngine;
 
 using System.Collections;
+using System.Collections.Generic;
 using System;
 using System.IO;
 using System.Net.Sockets;
+using System.Linq;
 
 
 // MoveBehaviour inherits from GenericBehaviour. This class corresponds to basic walk and run behaviour, it is the default behaviour.
 public class MoveBehaviour : GenericBehaviour
 {
-	public float walkSpeed = 0.15f;                 // Default walk speed.
+    public volatile List<String> directions = new List<String>();
+    public List<String> tempDirections = new List<String>();
+
+    public float walkSpeed = 0.15f;                 // Default walk speed.
 	public float runSpeed = 1.0f;                   // Default run speed.
 	public float sprintSpeed = 2.0f;                // Default sprint speed.
 	public float speedDampTime = 0.1f;              // Default damp time to change the animations based on current speed.
@@ -22,6 +27,10 @@ public class MoveBehaviour : GenericBehaviour
 	private int groundedBool;                       // Animator variable related to whether or not the player is on ground.
 	private bool jump;                              // Boolean to determine whether or not the player started a jump.
 	private bool isColliding;                       // Boolean to determine if the player has collided with an obstacle.
+
+	enum AdvanceSMStates {IDLE, GETOUTOFCROSSROADS, PROCESSINSTRUCTION, MOVEUNTILNEWSCENARIO, ASKFORINSTRUCTIONS, WAITFORINSTRUCTIONS};
+	private AdvanceSMStates AdvanceSM = AdvanceSMStates.WAITFORINSTRUCTIONS;
+	private int processinstruction_ctr = 0;
 
 
 	//Socket
@@ -36,11 +45,11 @@ public class MoveBehaviour : GenericBehaviour
     StreamWriter socket_writer;
     StreamReader socket_reader;
 
-	// Start is always called after any Awake functions.
-	void Start() 
+    // Start is always called after any Awake functions.
+    void Start() 
 	{
-		// Set up the references.
-		jumpBool = Animator.StringToHash("Jump");
+        // Set up the references.
+        jumpBool = Animator.StringToHash("Jump");
 		groundedBool = Animator.StringToHash("Grounded");
 		behaviourManager.GetAnim.SetBool (groundedBool, true);
 
@@ -64,7 +73,9 @@ public class MoveBehaviour : GenericBehaviour
 	// Update is used to set features regardless the active behaviour.
 	void Update ()
 	{
-		string received_data = readSocket();
+
+		// Process input data if available
+        string received_data = readSocket();
 
         // Get jump input.
         /*if (!jump && Input.GetButtonDown(jumpButton) && behaviourManager.IsCurrentBehaviour(this.behaviourCode) && !behaviourManager.IsOverriding())
@@ -74,30 +85,174 @@ public class MoveBehaviour : GenericBehaviour
 
         if (received_data != "")
         {
-        	Debug.Log(received_data);
-        	// Do something with the received data,
-        	// print it in the log for now
-            if(received_data == ("up")){
-            	behaviourManager.v = behaviourManager.GetV + 90f;
-            	MovementManagement(behaviourManager.h, behaviourManager.v);
-            }
-            if(received_data == ("down")){            	
-            	behaviourManager.v = behaviourManager.v - 0.90f;
-            	MovementManagement(behaviourManager.h, behaviourManager.v);
-            	writeSocket("Hey from Unity!!!");
-            }
-            if(received_data == ("left")){
-            	behaviourManager.h = behaviourManager.h - 0.90f;
-            	MovementManagement(behaviourManager.h, behaviourManager.v);
-            }
-            if(received_data == ("right")){
-            	behaviourManager.h = behaviourManager.h + 0.90f;
-            	MovementManagement(behaviourManager.h, behaviourManager.v);
-            	
-            }
-            
-            
+        	//Debug.Log(received_data);
+			// Do something with the received data,
+			// print it in the log for now
+			if (AdvanceSM == AdvanceSMStates.WAITFORINSTRUCTIONS)
+				UpdateMasterInstruction(received_data);
         }
+
+		// Run Main state machine
+		AdvanceStep();
+
+		
+	}
+
+	public void UpdateMasterInstruction(string received_instruction)
+	{
+		/*if (received_instruction == ("up"))
+		{
+			behaviourManager.v = behaviourManager.GetV + 90f;
+			MovementManagement(behaviourManager.h, behaviourManager.v);
+		}
+		if (received_instruction == ("down"))
+		{
+			behaviourManager.v = behaviourManager.v - 0.90f;
+			MovementManagement(behaviourManager.h, behaviourManager.v);
+			writeSocket("Hey from Unity!!!");
+		}
+		if (received_instruction == ("left"))
+		{
+			behaviourManager.h = behaviourManager.h - 0.90f;
+			MovementManagement(behaviourManager.h, behaviourManager.v);
+		}
+		if (received_instruction == ("right"))
+		{
+			behaviourManager.h = behaviourManager.h + 0.90f;
+			MovementManagement(behaviourManager.h, behaviourManager.v);
+
+		}*/
+
+		if (received_instruction == ("up"))
+		{
+			// Continue straight ahead
+			// No changes needed in direction
+		}
+		if (received_instruction == ("back"))
+		{
+			behaviourManager.v = behaviourManager.GetV - .3f;
+			MovementManagement(behaviourManager.h, behaviourManager.v);
+		}
+		if (received_instruction == ("left"))
+		{
+			behaviourManager.h = behaviourManager.h - 0.50f;
+			MovementManagement(behaviourManager.h, behaviourManager.v);
+		}
+		if (received_instruction == ("right"))
+		{
+			behaviourManager.h = behaviourManager.h + 0.50f;
+			MovementManagement(behaviourManager.h, behaviourManager.v);
+
+		}
+
+		Debug.Log("Instruction received: " + received_instruction.ToString());
+
+		AdvanceSM = AdvanceSMStates.PROCESSINSTRUCTION;
+	}
+
+	public void AdvanceStep()
+	{
+		//Debug.Log(AdvanceSM.ToString());
+		switch (AdvanceSM)
+		{
+			case AdvanceSMStates.IDLE:
+				break;
+			case AdvanceSMStates.ASKFORINSTRUCTIONS:
+				AskForInstructions();
+				break;
+			case AdvanceSMStates.WAITFORINSTRUCTIONS:
+				break;
+			case AdvanceSMStates.PROCESSINSTRUCTION:
+				processinstruction_ctr++;
+				if(processinstruction_ctr >= 100)
+				{
+					processinstruction_ctr = 0;
+					AdvanceSM = AdvanceSMStates.GETOUTOFCROSSROADS;
+				}
+				break;
+			case AdvanceSMStates.GETOUTOFCROSSROADS:
+				// We just received the instructions, get into move out of the asked crossroad
+				if (directions.Contains("right") && directions.Contains("left"))
+				{
+					AdvanceSM = AdvanceSMStates.MOVEUNTILNEWSCENARIO;
+				}
+				else
+				{
+					// Move until pass the current crossroad 
+
+					// Main movement logic
+					if (directions.Contains("front_left"))
+					{
+						behaviourManager.h = behaviourManager.h + 0.010f;
+						MovementManagement(behaviourManager.h, behaviourManager.v);
+					}
+					else if (directions.Contains("front_right"))
+					{
+						behaviourManager.h = behaviourManager.h - 0.010f;
+						MovementManagement(behaviourManager.h, behaviourManager.v);
+					}
+					//else
+					{
+						// Move to front
+						 behaviourManager.v = behaviourManager.GetV + .3f;
+						 MovementManagement(behaviourManager.h, behaviourManager.v);
+					}
+				}
+				break;
+			case AdvanceSMStates.MOVEUNTILNEWSCENARIO:
+				if (directions.Contains("front") || !directions.Contains("left") || !directions.Contains("right"))
+					AdvanceSM = AdvanceSMStates.ASKFORINSTRUCTIONS;
+				else
+				{
+					// Main movement logic
+					if (directions.Contains("front_left"))
+					{
+						behaviourManager.h = behaviourManager.h + 0.010f;
+						MovementManagement(behaviourManager.h, behaviourManager.v);
+					}
+					else if (directions.Contains("front_right"))
+					{
+						behaviourManager.h = behaviourManager.h - 0.010f;
+						MovementManagement(behaviourManager.h, behaviourManager.v);
+					}
+					//else
+					{
+						// Move to front
+						behaviourManager.v = behaviourManager.GetV + .3f;
+						MovementManagement(behaviourManager.h, behaviourManager.v);
+					}
+				}
+				break;
+			default:
+				break;
+		}
+	}
+
+	public void AskForInstructions()
+	{
+		// Ask for instructions
+		String data = "";
+		foreach (String direction in directions)
+		{
+			// Filter out are internal colliders
+			if (!direction.Equals("front_right") && !direction.Equals("front_left"))
+			{
+				if (direction.Equals("front_tip"))
+					// front_tip is used to report front blocked to the server (as alias of "front"),
+					// but not to trigger "AskForInstruction" event in unity
+					data += "front,";
+				else
+					data += direction + ",";
+			}
+		}
+		if (data.Length > 0)
+		{
+			data = data.Remove(data.Length - 1);
+		}
+		writeSocket(data);
+		Debug.Log("Sent data to app js: " + data);
+
+		AdvanceSM = AdvanceSMStates.WAITFORINSTRUCTIONS;
 	}
 
 	// LocalFixedUpdate overrides the virtual function of the base class.
@@ -105,8 +260,8 @@ public class MoveBehaviour : GenericBehaviour
 	{
 		// Call the basic movement manager.
 		MovementManagement(behaviourManager.GetH, behaviourManager.GetV);
-		Debug.Log("H: "+behaviourManager.GetH);
-		Debug.Log("V: "+behaviourManager.GetV);
+		//Debug.Log("H: "+behaviourManager.GetH);
+		//Debug.Log("V: "+behaviourManager.GetV);
 	}
 
 	// Deal with the basic player movement
@@ -169,11 +324,6 @@ public class MoveBehaviour : GenericBehaviour
 
     // Collision detection.
 
-    /*public Collider frontCollider;
-    public Collider backCollider;
-    public Collider rightCollider;
-    public Collider leftCollider;*/
-
     private void OnCollisionStay(Collision collision)
 	{
 		isColliding = true;
@@ -183,10 +333,32 @@ public class MoveBehaviour : GenericBehaviour
 		isColliding = false;
 	}
 
-    public void printColision(String direction)
+    public void OnTriggerEnter(Collider collider)
+    {
+        //colliders.Add(collider);
+    }
+
+    /*public void printColision(String direction)
     {
         Debug.Log(direction);
         writeSocket(direction);
+    }*/
+
+    public void addCollision(String direction)
+    {
+        if (!directions.Contains(direction))
+        {
+            directions.Add(direction);
+			//Debug.Log(direction.ToString() +" added");
+		}
+    }
+
+    public void removeCollision(String direction)
+    {
+        if (directions.Contains(direction)) {
+            directions.Remove(direction);
+			//Debug.Log(direction.ToString() + " removed");
+		}
     }
 
     //Socket functions ########################################################################################################
