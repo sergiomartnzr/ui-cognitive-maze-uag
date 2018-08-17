@@ -11,7 +11,7 @@ using System.Linq;
 // MoveBehaviour inherits from GenericBehaviour. This class corresponds to basic walk and run behaviour, it is the default behaviour.
 public class MoveBehaviour : GenericBehaviour
 {
-    public List<String> directions = new List<String>();
+    public volatile List<String> directions = new List<String>();
     public List<String> tempDirections = new List<String>();
 
     public float walkSpeed = 0.15f;                 // Default walk speed.
@@ -85,7 +85,7 @@ public class MoveBehaviour : GenericBehaviour
 
         if (received_data != "")
         {
-        	Debug.Log(received_data);
+        	//Debug.Log(received_data);
 			// Do something with the received data,
 			// print it in the log for now
 			if (AdvanceSM == AdvanceSMStates.WAITFORINSTRUCTIONS)
@@ -128,9 +128,9 @@ public class MoveBehaviour : GenericBehaviour
 			// Continue straight ahead
 			// No changes needed in direction
 		}
-		if (received_instruction == ("down"))
+		if (received_instruction == ("back"))
 		{
-			behaviourManager.h = behaviourManager.h +1.00f;
+			behaviourManager.v = behaviourManager.GetV - .3f;
 			MovementManagement(behaviourManager.h, behaviourManager.v);
 		}
 		if (received_instruction == ("left"))
@@ -145,7 +145,7 @@ public class MoveBehaviour : GenericBehaviour
 
 		}
 
-		Debug.Log(received_instruction.ToString());
+		Debug.Log("Instruction received: " + received_instruction.ToString());
 
 		AdvanceSM = AdvanceSMStates.PROCESSINSTRUCTION;
 	}
@@ -234,14 +234,23 @@ public class MoveBehaviour : GenericBehaviour
 		String data = "";
 		foreach (String direction in directions)
 		{
-			if(!direction.Equals("front_right") && !direction.Equals("front_left")) // Filter out are internal colliders
-				data += direction + ",";
+			// Filter out are internal colliders
+			if (!direction.Equals("front_right") && !direction.Equals("front_left"))
+			{
+				if (direction.Equals("front_tip"))
+					// front_tip is used to report front blocked to the server (as alias of "front"),
+					// but not to trigger "AskForInstruction" event in unity
+					data += "front,";
+				else
+					data += direction + ",";
+			}
 		}
 		if (data.Length > 0)
 		{
 			data = data.Remove(data.Length - 1);
 		}
 		writeSocket(data);
+		Debug.Log("Sent data to app js: " + data);
 
 		AdvanceSM = AdvanceSMStates.WAITFORINSTRUCTIONS;
 	}
