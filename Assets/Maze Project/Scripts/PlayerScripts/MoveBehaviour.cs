@@ -234,16 +234,14 @@ public class MoveBehaviour : GenericBehaviour
 		String data = "";
 		foreach (String direction in directions)
 		{
-			// Filter out are internal colliders
-			if (!direction.Equals("front_right") && !direction.Equals("front_left"))
-			{
-				if (direction.Equals("front_tip"))
-					// front_tip is used to report front blocked to the server (as alias of "front"),
-					// but not to trigger "AskForInstruction" event in unity
-					data += "front,";
-				else
-					data += direction + ",";
-			}
+			if (direction.Equals("left_front"))
+				data += "left,";
+			else if (direction.Equals("right_front"))
+				data += "right,";
+			else if (direction.Equals("front_tip"))
+				data += "front,";
+			else if (direction.Equals("back"))
+				data += "back,";
 		}
 		if (data.Length > 0)
 		{
